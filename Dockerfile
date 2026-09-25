@@ -8,8 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 5006
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "App.py"]
+CMD ["python", "quickstart.py"]

@@ -1,385 +1,120 @@
 <div align="center">
-    <a href="https://www.python.org/">
-        <img src="https://img.shields.io/badge/python-3.12%2B-blue" alt="Python 3.12+">
-    </a>
-    <a href="https://fastapi.tiangolo.com/">
-        <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688" alt="FastAPI">
-    </a>
+  <a href="https://github.com/cv-cat/XApis">
+    <img width="180" src="./assets/xapis-logo.png" alt="XApis logo">
+  </a>
+
+  <h1>🐦 XApis</h1>
+  <p>纯 Python 的 X (Twitter) 登录、搜索、读写与媒体接口库</p>
+
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+"></a>
+  <a href="https://github.com/lexiforest/curl_cffi"><img src="https://img.shields.io/badge/curl__cffi-browser--like-0F172A" alt="curl_cffi"></a>
 </div>
 
-# 🐦 Twitter / X Platform
+> 仅供学习、研究和经过授权的自动化使用。请遵守 X 服务条款与当地法律，勿用于隐私抓取、批量骚扰或违规发布。
 
-**✨ 专业的 Twitter(X) 数据采集解决方案，支持推文搜索、用户信息、作品列表与评论抓取**
+## ✨ 能力
 
-当你需要让 AI Agent 感知 Twitter(X) 内容生态——自动采集评论舆论、分析用户推文、驱动内容运营策略——第一道墙往往不是模型能力，而是**平台数据获取能力的缺失**。
+- 纯 Python 账密登录，Castle / XCTID 本地计算，不依赖浏览器自动化。
+- 登录成功后自动持久化 cookie；默认复用有效 cookie，`--force` 可强制重登。
+- 搜索、作品详情、评论、用户信息、时间线、发帖、回复、删除、点赞、转推、关注。
+- 图片、多图片和视频上传；X Chat 私信读取链路已封装。
+- 直接调用 Python SDK，也可以使用 `main.py` CLI。
 
-本项目做的事很简单：把这道墙拆掉。
-
-**⚠️ 严禁用于爬取用户隐私、违规商业用途！本项目仅供学习与技术研究使用，后果自负。**
-
-## 🌟 功能特性
-
-- 🔍 **推文搜索**
-  - 支持关键字搜索推文
-  - 支持 `Top`（热门）/ `Latest`（最新）排序方式
-  - 支持游标翻页，获取更多结果
-- 👤 **用户信息采集**
-  - 通过用户名获取用户详细 Profile 数据
-- 📝 **用户作品列表**
-  - 获取指定用户发布的推文列表
-  - 支持游标翻页，获取全部推文
-- 📄 **推文详情获取**
-  - 通过推文 ID 获取推文完整详情数据
-- 💬 **评论采集**
-  - 获取指定推文的评论列表
-  - 支持游标翻页，获取更多评论
-- 🚀 **高性能服务**
-  - 基于 FastAPI + Uvicorn 异步服务
-  - 支持 Docker 一键部署
-
-## 🛠️ 快速开始
-
-### ⛳ 运行环境
-
-- Python 3.10+
-
-### 🎯 本地安装
+## 🚀 快速开始
 
 ```bash
+git clone https://github.com/cv-cat/XApis.git
+cd XApis
+python -m venv .venv
+
+# Windows
+.venv\Scripts\activate
+
+# macOS / Linux
+# source .venv/bin/activate
+
 pip install -r requirements.txt
+copy .env.example .env       # macOS / Linux 使用 cp .env.example .env
 ```
 
-### 🚀 运行项目
+在 `.env` 中填写：
+
+```dotenv
+X_USERNAME=''
+X_PASSWORD=''
+X_PROXY=''
+CASTLE_PURE_RL_FILE='castle_profile.json'
+```
+
+`castle_profile.json` 是同一登录页采集的完整 Castle Rl/profile。然后直接运行：
 
 ```bash
-python App.py
+python quickstart.py
 ```
 
-服务启动后访问 http://localhost:5006/docs 查看交互式 API 文档。
+脚本会纯 Python 登录、把 cookie 写回 `.env`，再搜索“美国”并打印结果。修改
+`quickstart.py` 顶部的 `SEARCH_QUERY` / `SEARCH_PRODUCT` 可切换搜索内容。
 
-### 🎨 Cookie & Token 配置
-
-在浏览器中打开 [x.com](https://x.com)，**登录账号**后按 `F12` 打开开发者工具，点击「网络」→ 找任意一个 API 请求（如搜索请求）→ 复制请求头中以下字段：
-
-| 字段            | 说明                              |
-|---------------|-----------------------------------|
-| `cookie`      | 登录态 Cookie 字符串               |
-| `authorization` | Bearer Token（`Bearer AAAAAAAAAAAAAAAAAAAAANRILg...`）|
-| `x-csrf-token` | CSRF Token（即 Cookie 中的 `ct0` 值）|
-
-> ⚠️ 注意：必须登录后获取的凭证才有效，缺失将导致请求失败。
-
-## 📡 接口说明
-
-### POST `/search_work`
-
-搜索推文，支持关键字搜索和排序方式选择。
-
-**请求参数**
-
-| 字段            | 类型  | 必填 | 说明                          |
-|---------------|-----|----|-------------------------------|
-| query         | str | 是  | 搜索关键字                     |
-| product       | str | 是  | 排序方式：`Top`（热门）或 `Latest`（最新）|
-| authorization | str | 是  | Bearer Token                  |
-| x_csrf_token  | str | 是  | CSRF Token                    |
-| cookies_str   | str | 是  | 登录 Cookie 字符串             |
-
-**请求示例**
+已有本地 cookie 时，也可以使用 CLI：
 
 ```bash
-curl -X POST http://localhost:5006/search_work \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "你好",
-    "product": "Top",
-    "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILg...",
-    "x_csrf_token": "your_csrf_token",
-    "cookies_str": "ct0=xxx; auth_token=xxx; ..."
-  }'
+python main.py login                         # 有效 cookie 直接复用
+python main.py login --force --pure-only \
+  --pure-rl castle_profile.json               # 强制纯算重登
+python main.py search "美国" --product Latest
 ```
 
-**响应示例**
+## 🐍 SDK
 
-```json
-{
-  "code": 200,
-  "message": "成功",
-  "data": {
-    "data": {
-      "search_by_raw_query": {
-        "search_timeline": {
-          "timeline": {
-            "instructions": [...]
-          }
-        }
-      }
-    }
-  }
-}
+```python
+from utils.common_util import load_env
+from x_apis.x_api import XAPI
+from x_apis.x_write_api import XWriteAPI
+
+auth = load_env()
+result = XAPI.search_work(auth, "python", product="Latest")
+
+ok, message, raw = XWriteAPI.post_tweet(auth, "hello from XApis")
+print(ok, message)
 ```
 
-> **翻页说明**：从响应中提取游标：
-> `data['data']['search_by_raw_query']['search_timeline']['timeline']['instructions'][0]['entries'][-1]['content']['value']`
-> 将其作为 `cursor` 字段传入下次请求（当前接口暂未暴露 cursor 参数，可直接调用 SDK 层翻页）。
+## 📁 结构
 
----
-
-### POST `/get_work_info`
-
-通过推文 ID 获取推文的完整详情数据。
-
-**请求参数**
-
-| 字段            | 类型  | 必填 | 说明              |
-|---------------|-----|----|-------------------|
-| work_id       | str | 是  | 推文 ID            |
-| authorization | str | 是  | Bearer Token       |
-| x_csrf_token  | str | 是  | CSRF Token         |
-| cookies_str   | str | 是  | 登录 Cookie 字符串  |
-
-**请求示例**
-
-```bash
-curl -X POST http://localhost:5006/get_work_info \
-  -H "Content-Type: application/json" \
-  -d '{
-    "work_id": "1790036086909010409",
-    "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILg...",
-    "x_csrf_token": "your_csrf_token",
-    "cookies_str": "ct0=xxx; auth_token=xxx; ..."
-  }'
+```text
+quickstart.py            纯 Python 账密登录并搜索
+main.py                  CLI 入口
+builder/                 请求、鉴权和 GraphQL 参数
+x_apis/                  登录、读写、媒体与 X Chat 接口
+utils/                   XCTID/Castle 纯算与数据处理
+static/                  GraphQL 注册表和运行时素材
+assets/xapis-logo.png    项目 logo
 ```
 
-**响应示例**
+## 📈 Star History
 
-```json
-{
-  "code": 200,
-  "message": "成功",
-  "data": {
-    "data": {
-      "threaded_conversation_with_injections_v2": {
-        "instructions": [...]
-      }
-    }
-  }
-}
-```
-
----
-
-### POST `/get_user_info`
-
-通过用户名获取用户详细 Profile 信息。
-
-**请求参数**
-
-| 字段            | 类型  | 必填 | 说明              |
-|---------------|-----|----|-------------------|
-| user_name     | str | 是  | Twitter 用户名（不含 @）|
-| authorization | str | 是  | Bearer Token       |
-| x_csrf_token  | str | 是  | CSRF Token         |
-| cookies_str   | str | 是  | 登录 Cookie 字符串  |
-
-**请求示例**
-
-```bash
-curl -X POST http://localhost:5006/get_user_info \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_name": "picturesfoider",
-    "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILg...",
-    "x_csrf_token": "your_csrf_token",
-    "cookies_str": "ct0=xxx; auth_token=xxx; ..."
-  }'
-```
-
-**响应示例**
-
-```json
-{
-  "code": 200,
-  "message": "成功",
-  "data": {
-    "data": {
-      "user": {
-        "result": {
-          "id": "VXNlcjoxNzE4ODAyOTMxMDM2NjIyODQ4",
-          "rest_id": "1718802931036622848",
-          "legacy": {
-            "name": "用户昵称",
-            "screen_name": "picturesfoider",
-            "followers_count": 12345,
-            "friends_count": 678
-          }
-        }
-      }
-    }
-  }
-}
-```
-
----
-
-### POST `/get_user_post_note`
-
-获取指定用户发布的推文列表，支持翻页。
-
-**请求参数**
-
-| 字段            | 类型        | 必填 | 说明                        |
-|---------------|-----------|----|-----------------------------|
-| user_id       | str       | 是  | 用户 rest_id（由 `/get_user_info` 获取）|
-| cursor        | str\|null | 否  | 翻页游标，首次请求传 `null`    |
-| authorization | str       | 是  | Bearer Token                 |
-| x_csrf_token  | str       | 是  | CSRF Token                   |
-| cookies_str   | str       | 是  | 登录 Cookie 字符串            |
-
-**请求示例**
-
-```bash
-curl -X POST http://localhost:5006/get_user_post_note \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_id": "1718802931036622848",
-    "cursor": null,
-    "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILg...",
-    "x_csrf_token": "your_csrf_token",
-    "cookies_str": "ct0=xxx; auth_token=xxx; ..."
-  }'
-```
-
-> **翻页说明**：从响应中提取游标：
-> `data['data']['user']['result']['timeline_v2']['timeline']['instructions'][1]['entries'][-1]['content']['value']`
-
----
-
-### POST `/get_work_comments`
-
-获取指定推文的评论列表，支持翻页。
-
-**请求参数**
-
-| 字段            | 类型        | 必填 | 说明                         |
-|---------------|-----------|----|-----------------------------|
-| work_id       | str       | 是  | 推文 ID                      |
-| cursor        | str\|null | 否  | 翻页游标，首次请求传 `null`    |
-| authorization | str       | 是  | Bearer Token                 |
-| x_csrf_token  | str       | 是  | CSRF Token                   |
-| cookies_str   | str       | 是  | 登录 Cookie 字符串            |
-
-**请求示例**
-
-```bash
-curl -X POST http://localhost:5006/get_work_comments \
-  -H "Content-Type: application/json" \
-  -d '{
-    "work_id": "1791153728818643334",
-    "cursor": null,
-    "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILg...",
-    "x_csrf_token": "your_csrf_token",
-    "cookies_str": "ct0=xxx; auth_token=xxx; ..."
-  }'
-```
-
-**响应示例**
-
-```json
-{
-  "code": 200,
-  "message": "成功",
-  "data": {
-    "data": {
-      "threaded_conversation_with_injections_v2": {
-        "instructions": [
-          {
-            "entries": [
-              {
-                "content": {
-                  "itemContent": {
-                    "tweet_results": {
-                      "result": {
-                        "legacy": {
-                          "full_text": "评论内容",
-                          "user_id_str": "用户ID"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            ]
-          }
-        ]
-      }
-    }
-  }
-}
-```
-
-> **翻页说明**：从响应中提取游标：
-> `data['data']['threaded_conversation_with_injections_v2']['instructions'][0]['entries'][-1]['content']['itemContent']['value']`
-
-## 🔗 典型调用流程
-
-### 搜索推文并翻页
-
-```
-1. POST /search_work  (cursor=null) → 获取第一页结果及翻页游标
-2. POST /search_work  (cursor=上一步游标) → 获取下一页结果
-```
-
-### 获取用户全部推文
-
-```
-1. POST /get_user_info      → 获取 user_id (rest_id)
-2. POST /get_user_post_note (cursor=null) → 获取第一页推文
-3. POST /get_user_post_note (cursor=上一步游标) → 继续翻页
-```
-
-### 获取推文全部评论
-
-```
-1. POST /get_work_comments (cursor=null) → 获取第一页评论
-2. POST /get_work_comments (cursor=上一步游标) → 继续翻页
-```
-
-## 🐳 Docker 部署
-
-```bash
-docker build -t twitter-platform .
-docker run -d -p 5006:5006 twitter-platform
-```
-
-## 🍥 日志
-
-| 日期       | 说明                                                          |
-|----------|---------------------------------------------------------------|
-| 26/04/10 | 项目初始化，完成推文搜索、用户信息、作品列表、评论采集 API 封装 |
-
-## 🤝 欢迎贡献 PR
-
-本项目欢迎任何形式的贡献！如果你有新功能想法、Bug 修复或文档改进，欢迎提交 PR。
-
-- Fork 本仓库并在新分支上开发
-- 保持代码风格与现有代码一致
-- PR 描述中请简要说明改动内容和目的
-- 也欢迎通过 Issue 提出建议或报告问题
-
-## 🧸 额外说明
-1. 感谢 star⭐ 和 follow📰！不时更新
-2. 作者的联系方式在主页里，有问题可以随时联系我
-3. 可以关注下作者的其他项目，欢迎 PR 和 issue
-4. 感谢赞助！如果此项目对您有帮助，请作者喝一杯奶茶~~ （开心一整天😊😊）
-5. thank you~~~
+<a href="https://github.com/cv-cat/XApis">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://cvcat.site/star-history/svg?repos=cv-cat/XApis&type=Date&theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://cvcat.site/star-history/svg?repos=cv-cat/XApis&type=Date">
+    <img alt="Star History Chart" src="https://cvcat.site/star-history/svg?repos=cv-cat/XApis&type=Date">
+  </picture>
+</a>
 
 ## 🍔 交流群
 
 如果你对爬虫和 AI Agent 感兴趣，可以加入群聊一起讨论~
 
-ps: 请加群，人满或者过期 issue | wx 提醒 | qq提醒
+二维码可能会过期或满员，失效时请通过 Issue、微信或 QQ 提醒。第 4 个二维码为 2000 人 QQ 群。
 
-| group-1 | group-2 | group-3 | group-4 (2000人qq群) |
-|:--:|:--:|:--:|:--:|
-| <img width="280" alt="group1" src="https://cvcat.site/assets/group1.jpg" /> | <img width="280" alt="group2" src="https://cvcat.site/assets/group2.jpg" /> | <img width="280" alt="group3" src="https://cvcat.site/assets/group3.jpg" /> | <img width="280" alt="group3" src="https://cvcat.site/assets/group4.jpg" /> |
+<div align="center">
+  <img width="220" src="https://cvcat.site/assets/group1.jpg" alt="交流群二维码 1">
+  <img width="220" src="https://cvcat.site/assets/group2.jpg" alt="交流群二维码 2">
+  <img width="220" src="https://cvcat.site/assets/group3.jpg" alt="交流群二维码 3">
+  <img width="220" src="https://cvcat.site/assets/group4.jpg" alt="交流群二维码 4">
+</div>
+
+## 🤝 贡献
+
+欢迎提交 Issue 或 PR。涉及请求字段、签名和加密链路的改动，请附上可复现的验证说明。
+
+⭐ 如果项目对你有帮助，欢迎 Star。
