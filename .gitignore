@@ -1,4 +1,4 @@
-__pycache__
+**/__pycache__/
 node_modules/
 *.so
 .Python
@@ -28,4 +28,28 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-datas
+datas/
+.env
+
+# Runtime-only branch policy: local investigation material and generated output
+# stay out of the deployable tree. The complete snapshot remains on the backup
+# branch created before this cleanup.
+/my_goal.md
+/docs/
+/tests/
+/_scratch/
+/_scratch_*.py
+/_*
+.idea/
+*.py[cod]
+.pytest_cache/
+
+# Castle token generator diagnostics and generated output.
+static/castle/_*
+static/castle/dump_*
+static/castle/worker_dump.txt
+static/castle/token.txt
+static/castle/*.candidate.js
+static/castle/castle.diag.js
+static/castle/castle.dump.js
+static/castle/run.new.js

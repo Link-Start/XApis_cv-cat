@@ -1,0 +1,14 @@
+{
+  "generatedAt": "2026-09-25T01:35:24+0800",
+  "source_url": "https://abs.twimg.com/responsive-web/client-web/ondemand.castle.674f685cbe8c9596a.js",
+  "orig_sha256": "7f7eeae6bee186e5d718cbc8094d4f5b9e0d268df68a168a09736e8db702f69a",
+  "public_key": "pk_AvRa79bHyJSYSQHnRpcVtzyxetSvFerx",
+  "token_prefix": "e8bl5yQW",
+  "patch_counts": {},
+  "patch_mode": "unpatched",
+  "module_id": 855881,
+  "umd_source_url": "https://abs.twimg.com/x-web/x-web/assets/castle.umd-BneRArir.js",
+  "umd_sha256": "521a08dfc3455188f827cf963d6bc4114dc02151224f950f30de2a62a321e6c9",
+  "umd_token_prefix": "uq1seNrd",
+  "umd_runtime": "rolldown-runtime-XXLRXQBO.js"
+}
