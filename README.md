@@ -17,6 +17,7 @@
 - 纯 Python 账密登录，Castle / XCTID 本地计算，不依赖浏览器自动化。
 - 登录成功后自动持久化 cookie；默认复用有效 cookie，`--force` 可强制重登。
 - 搜索、作品详情、评论、用户信息、时间线、发帖、回复、删除、点赞、转推、关注。
+- Premium 长推（CreateNoteTweet，按权重自动切换）、Thread、文章（Markdown 一键建草稿 / 发布）。
 - 图片、多图片和视频上传；X Chat 私信读取链路已封装。
 - 直接调用 Python SDK，也可以使用 `main.py` CLI。
 
@@ -64,6 +65,23 @@ python main.py login --force --pure-only \
 python main.py search "美国" --product Latest
 ```
 
+### ✍️ 长推 / Thread / 文章（Premium）
+
+```bash
+python main.py post --file long.txt           # 超过 280 权重自动走长推 CreateNoteTweet
+python main.py thread --file thread.md        # 单独一行 --- 分隔每条，逐条回复上一条
+python main.py article article.md --cover banner.png            # 只存草稿，网页上预览
+python main.py article article.md --cover banner.png --publish \
+  --caption "发布时附带的推文" --reply-mode Verified              # 直接发布
+python main.py article-list [--published]
+python main.py article-delete <文章id>
+```
+
+文章正文用 Markdown 写，第一行 `# 标题` 会被拆成文章标题；支持 `#` / `##` 标题、
+`**粗体**` `*斜体*` `~~删除线~~` `[链接](url)`、有序 / 无序列表、`>` 引用、
+`---` 分割线、独占一行的 `![](图片路径)`、```` ``` ```` 代码块。
+封面建议 5:2。
+
 ## 🐍 SDK
 
 ```python
@@ -76,6 +94,17 @@ result = XAPI.search_work(auth, "python", product="Latest")
 
 ok, message, raw = XWriteAPI.post_tweet(auth, "hello from XApis")
 print(ok, message)
+
+# 长推：超过 280 权重自动走 CreateNoteTweet（也可 note=True 强制）
+ok, message, raw = XWriteAPI.post_tweet(auth, long_text)
+ok, message, tweet_ids = XWriteAPI.post_thread(auth, ["第一条", "第二条", "第三条"])
+
+# 文章：Markdown -> 草稿（publish=True 直接发布）
+from x_apis.x_article_api import XArticleAPI
+ok, message, info = XArticleAPI.post_article(
+    auth, open("article.md", encoding="utf-8").read(),
+    cover="banner.png", base_dir=".", publish=False)
+print(info["edit_url"])
 ```
 
 ## 📁 结构

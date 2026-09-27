@@ -10,6 +10,50 @@ _STATUS_RE = re.compile(r'(?:twitter|x)\.com/(?:#!/)?(\w+)/status(?:es)?/(\d+)')
 _SCREEN_NAME_RE = re.compile(r'(?:twitter|x)\.com/@?([A-Za-z0-9_]{1,15})/?(?:\?|$)')
 
 
+# twitter-text v3 的计数配置：普通推上限 280 权重；
+# 落在下面几个区间里的字符（拉丁、常用标点）算 1，其余（CJK、emoji 等）算 2；
+# 链接不论多长一律按 23 计。
+TWEET_WEIGHT_LIMIT = 280
+_URL_WEIGHT = 23
+_LIGHT_RANGES = ((0, 4351), (8192, 8205), (8208, 8223), (8242, 8247))
+# 中文正文里链接后面常直接跟全角标点，遇到 CJK 标点 / 全角字符即视为链接结束
+_URL_RE = re.compile(r'https?://[^\s\u3000-\u303f\uff00-\uffef]+', re.IGNORECASE)
+# emoji 序列里的「修饰」码点：不单独计数，整个 emoji 只算一次 2
+_EMOJI_JOINERS = {0x200D, 0xFE0E, 0xFE0F, 0x20E3}
+
+
+def _char_weight(cp: int) -> int:
+    return 1 if any(lo <= cp <= hi for lo, hi in _LIGHT_RANGES) else 2
+
+
+def tweet_weight(text: str) -> int:
+    """按 twitter-text v3 规则计算推文权重（网页端右下角那个圈）。
+
+    `> 280` 时普通 `CreateTweet` 会被拒，需要 Premium 的 `CreateNoteTweet`。
+    """
+    text = text or ''
+    weight, cursor = 0, 0
+    for match in _URL_RE.finditer(text):
+        weight += _plain_weight(text[cursor:match.start()]) + _URL_WEIGHT
+        cursor = match.end()
+    return weight + _plain_weight(text[cursor:])
+
+
+def _plain_weight(text: str) -> int:
+    weight, joined = 0, False
+    for ch in text:
+        cp = ord(ch)
+        if cp in _EMOJI_JOINERS or 0x1F3FB <= cp <= 0x1F3FF:
+            # ZWJ 之后紧跟的码点属于同一个 emoji，不再计数
+            joined = cp == 0x200D
+            continue
+        if joined:
+            joined = False
+            continue
+        weight += _char_weight(cp)
+    return weight
+
+
 def trans_cookies(cookies_str: str) -> dict:
     """"a=1; b=2" -> {'a': '1', 'b': '2'}；容忍空串与结尾分号。"""
     cookies = {}
