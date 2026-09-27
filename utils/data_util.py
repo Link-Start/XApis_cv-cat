@@ -47,13 +47,16 @@ def handle_work_info(result: dict) -> dict:
             if mp4:
                 videos.append(max(mp4, key=lambda v: v.get('bitrate') or 0)['url'])
 
+    # 长推（note tweet）的 legacy.full_text 只是截断的预览，全文在 note_tweet 里
+    note = (((result.get('note_tweet') or {}).get('note_tweet_results') or {})
+            .get('result') or {})
     screen_name = user_core.get('screen_name', '')
     work_id = result.get('rest_id') or legacy.get('id_str', '')
     return {
         'work_id': work_id,
         'work_url': f'https://x.com/{screen_name}/status/{work_id}',
         'work_type': 'video' if videos else ('image' if images else 'text'),
-        'title': legacy.get('full_text', ''),
+        'title': note.get('text') or legacy.get('full_text', ''),
         'create_time': legacy.get('created_at', ''),
         'lang': legacy.get('lang', ''),
         'user_id': user.get('rest_id', ''),

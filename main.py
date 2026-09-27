@@ -6,6 +6,11 @@
     python main.py user    <用户名>
     python main.py search  "关键词" [--product Latest]
     python main.py post    "正文" [--image a.jpg --image b.png] [--reply-to <id>]
+    python main.py post    --file long.txt          # 超过 280 权重自动走长推
+    python main.py thread  --file thread.md         # 单独一行 --- 分隔每条
+    python main.py article article.md [--cover banner.png] [--publish]
+    python main.py article-list [--published]
+    python main.py article-delete <文章id>
     python main.py delete  <推文id>
     python main.py spider  <用户名> [--pages 3] [--save all]
     python main.py refresh-graphql
@@ -18,16 +23,18 @@
 import argparse
 import json
 import os
+import re
 import sys
 
 from loguru import logger
 
 from utils.common_util import clear_cookies, init, save_cookies
 from utils.data_util import handle_work_info, download_work, save_to_xlsx
-from utils.x_util import (extract_cursor, extract_tweet_entries, parse_screen_name,
-                          trans_cookies)
+from utils.x_util import (TWEET_WEIGHT_LIMIT, extract_cursor, extract_tweet_entries,
+                          parse_screen_name, trans_cookies, tweet_weight)
 from x_apis.errors import GraphQLError
 from x_apis.x_api import XAPI
+from x_apis.x_article_api import REPLY_MODES, XArticleAPI
 from x_apis.x_write_api import XWriteAPI
 
 
@@ -79,15 +86,89 @@ def cmd_search(auth, args):
     return 0
 
 
+def _read_text(text, file):
+    if file:
+        with open(file, encoding='utf-8') as fp:
+            return fp.read().strip()
+    return text
+
+
 def cmd_post(auth, args):
+    text = _read_text(args.text, args.file)
+    if not text:
+        logger.error('正文为空：给 text 参数或 --file')
+        return 1
+    note = True if args.note else None
+    weight = tweet_weight(text)
+    if note or weight > TWEET_WEIGHT_LIMIT:
+        logger.info(f'权重 {weight} > {TWEET_WEIGHT_LIMIT}，按长推（CreateNoteTweet）发送')
     success, msg, res_json = XWriteAPI.post_tweet(
-        auth, args.text, images=args.image, reply_to=args.reply_to,
-        quote_url=args.quote)
+        auth, text, images=args.image, reply_to=args.reply_to,
+        quote_url=args.quote, note=note)
     if not success:
         logger.error(f'发布失败：{msg}')
         return 1
     work_id = XWriteAPI.extract_tweet_id(res_json)
     logger.info(f'发布成功 https://x.com/i/status/{work_id}')
+    return 0
+
+
+def cmd_thread(auth, args):
+    texts = list(args.texts or [])
+    if args.file:
+        # 文件里用单独一行 --- 分隔每条推文
+        texts += [part.strip() for part in
+                  re.split(r'^\s*---\s*$', _read_text(None, args.file), flags=re.M)
+                  if part.strip()]
+    if len(texts) < 2:
+        logger.error('thread 至少要两条：多个 text 参数，或 --file 里用 --- 分隔')
+        return 1
+    success, msg, tweet_ids = XWriteAPI.post_thread(
+        auth, texts, reply_to=args.reply_to, interval=args.interval)
+    for tweet_id in tweet_ids:
+        logger.info(f'https://x.com/i/status/{tweet_id}')
+    if not success:
+        logger.error(f'thread 中断：{msg}')
+        return 1
+    logger.info(f'thread 发布成功，共 {len(tweet_ids)} 条')
+    return 0
+
+
+def cmd_article(auth, args):
+    markdown = _read_text(None, args.file)
+    success, msg, info = XArticleAPI.post_article(
+        auth, markdown, title=args.title, cover=args.cover,
+        publish=args.publish, tweet_text=args.caption or '',
+        reply_mode=args.reply_mode, article_id=args.article_id,
+        base_dir=os.path.dirname(os.path.abspath(args.file)))
+    if info.get('edit_url'):
+        logger.info(f"草稿 {info['edit_url']}")
+    if not success:
+        logger.error(f'文章失败：{msg}')
+        return 1
+    if args.publish:
+        logger.info(f"文章已发布 https://x.com/i/status/{info['tweet_id']}")
+    else:
+        logger.info('已存为草稿，去网页上预览确认后再发布（或加 --publish）')
+    return 0
+
+
+def cmd_article_list(auth, args):
+    res_json = XArticleAPI.list_articles(
+        auth, lifecycle='Published' if args.published else 'Draft',
+        count=args.count)
+    slice_ = res_json['data']['user']['result'].get('articles_article_mixer_slice') or {}
+    items = slice_.get('items') or []
+    for item in items:
+        result = ((item or {}).get('article_entity_results') or {}).get('result') or {}
+        logger.info(f"{result.get('rest_id')}  {result.get('title')!r}  "
+                    f"{(result.get('lifecycle_state') or {}).get('lifecycle')}")
+    logger.info(f'共 {len(items)} 篇')
+    return 0
+
+
+def cmd_article_delete(auth, args):
+    _dump(XArticleAPI.delete(auth, args.article_id))
     return 0
 
 
@@ -317,12 +398,42 @@ def build_parser():
                                                         'Media'])
     p.set_defaults(func=cmd_search)
 
-    p = sub.add_parser('post', help='发作品')
-    p.add_argument('text')
+    p = sub.add_parser('post', help='发作品（超过 280 权重自动按长推发）')
+    p.add_argument('text', nargs='?')
+    p.add_argument('--file', help='从文件读正文，适合长推')
     p.add_argument('--image', action='append', help='可重复，最多 4 张')
     p.add_argument('--reply-to', dest='reply_to')
     p.add_argument('--quote')
+    p.add_argument('--note', action='store_true',
+                   help='强制按长推（CreateNoteTweet）发，默认按权重自动判断')
     p.set_defaults(func=cmd_post)
+
+    p = sub.add_parser('thread', help='发 thread（每条回复上一条）')
+    p.add_argument('texts', nargs='*')
+    p.add_argument('--file', help='文件里用单独一行 --- 分隔每条')
+    p.add_argument('--reply-to', dest='reply_to', help='整串挂在这条推文下面')
+    p.add_argument('--interval', type=float, default=2.0, help='两条之间间隔秒数')
+    p.set_defaults(func=cmd_thread)
+
+    p = sub.add_parser('article', help='从 Markdown 写文章（默认只存草稿）')
+    p.add_argument('file', help='Markdown 文件；第一行 `# 标题` 会被拆成文章标题')
+    p.add_argument('--title', help='文章标题，不给则取正文第一行的 # 标题')
+    p.add_argument('--cover', help='封面图，建议 5:2')
+    p.add_argument('--publish', action='store_true', help='写完直接发布')
+    p.add_argument('--caption', help='发布时附带的推文说明文字（≤256 字）')
+    p.add_argument('--reply-mode', dest='reply_mode', choices=REPLY_MODES,
+                   help='谁可以回复，默认所有人')
+    p.add_argument('--article-id', dest='article_id', help='覆盖更新这篇已有草稿')
+    p.set_defaults(func=cmd_article)
+
+    p = sub.add_parser('article-list', help='列出文章草稿 / 已发布')
+    p.add_argument('--published', action='store_true')
+    p.add_argument('--count', type=int, default=20)
+    p.set_defaults(func=cmd_article_list)
+
+    p = sub.add_parser('article-delete', help='删除文章（不可撤销）')
+    p.add_argument('article_id')
+    p.set_defaults(func=cmd_article_delete)
 
     p = sub.add_parser('delete', help='删除作品')
     p.add_argument('work')

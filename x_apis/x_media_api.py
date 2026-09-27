@@ -173,6 +173,10 @@ class XMediaAPI:
         result = XMediaAPI.finalize(auth, media_id,
                                     original_md5=hashlib.md5(payload).hexdigest())
         XMediaAPI.wait_processing(auth, media_id, result)
+        # 文章编辑器（封面 / 正文插图）上传完 FINALIZE 就结束，
+        # 不发 metadata/create（2026-09-27 实抓），用 with_metadata=False 对齐。
+        if not kwargs.get('with_metadata', True):
+            return media_id
         # 网页端无论图片还是视频，发帖前都会登记下载权限元数据。
         # 这一步漏掉时，媒体虽已 FINALIZE 成功，但 CreateTweet 的媒体状态
         # 与浏览器不同，某些账号会被服务端拒绝或降级。

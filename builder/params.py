@@ -30,6 +30,19 @@ BROWSER_FIELD_TOGGLES = {
     'SearchTimeline': None,
     'HomeTimeline': None,
     'CreateTweet': None,
+    # 2026-09-27 Chrome 实抓：长推（Premium，>280 权重）走 CreateNoteTweet，
+    # body 形态与 CreateTweet 相同，同样不发 fieldToggles。
+    'CreateNoteTweet': None,
+    # 2026-09-27 Chrome 实抓：文章编辑器全链路（建草稿 / 改标题 / 改正文 /
+    # 改封面 / 发布 / 删除 / 草稿列表）都不发 fieldToggles，
+    # 虽然注册表里声明了 withPayments / withAuxiliaryUserLabels。
+    'ArticleEntityDraftCreate': None,
+    'ArticleEntityUpdateTitle': None,
+    'ArticleEntityUpdateContent': None,
+    'ArticleEntityUpdateCoverMedia': None,
+    'ArticleEntityPublish': None,
+    'ArticleEntityDelete': None,
+    'ArticleEntitiesSlice': None,
     'UserByScreenName': {'withPayments': False, 'withAuxiliaryUserLabels': True},
     # UserTweets 是旧回退操作；浏览器 profile 页当前用 UserOriginalsTimeline。
     # 两者都保留，但旧操作的当前 toggle 形状需要单独实抓，不在这里臆合并。
